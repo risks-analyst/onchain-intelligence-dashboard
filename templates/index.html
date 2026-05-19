@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>On-Chain Intelligence Dashboard</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#0b0f14;
+  color:#ffffff;
+  font-family:Inter, Arial, sans-serif;
+  min-height:100vh;
+  padding:40px;
+}
+.container { width:100%; max-width:1400px; margin:auto; }
+.header { margin-bottom:36px; }
+.eyebrow { color:#7d8590; font-size:13px; letter-spacing:2px; text-transform:uppercase; margin-bottom:14px; }
+.network-state { font-size:48px; font-weight:700; line-height:1.1; max-width:700px; }
+.grid { display:grid; grid-template-columns:1.5fr 0.8fr; gap:24px; }
+.panel { background:#121821; border:1px solid rgba(255,255,255,0.04); border-radius:24px; padding:26px; }
+.section-title { color:#7d8590; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:24px; }
+.stream { display:flex; flex-direction:column; gap:18px; }
+.stream-item { background:#0d131a; border-radius:18px; padding:20px; transition:0.2s ease; }
+.stream-item:hover { background:#101720; }
+.block-number { font-size:14px; color:#7d8590; margin-bottom:12px; }
+.stream-title { font-size:24px; font-weight:700; margin-bottom:10px; }
+.stream-description { color:#c9d1d9; line-height:1.6; font-size:15px; }
+.stream-meta { margin-top:14px; display:flex; gap:18px; color:#7d8590; font-size:13px; }
+.pulse { display:flex; flex-direction:column; gap:18px; }
+.pulse-item { display:flex; justify-content:space-between; align-items:center; padding-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.pulse-label { color:#8b949e; font-size:14px; }
+.pulse-value { font-size:14px; font-weight:600; color:#3fb950; }
+.live { margin-top:28px; display:flex; align-items:center; gap:10px; color:#7d8590; font-size:13px; }
+.dot { width:10px; height:10px; border-radius:50%; background:#3fb950; animation:blink 1.4s infinite; }
+@keyframes blink {
+  0% { opacity:0.4; transform:scale(1); }
+  50% { opacity:1; transform:scale(1.25); }
+  100% { opacity:0.4; transform:scale(1); }
+}
+.flow { margin-top:24px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.04); }
+.flow-text { color:#c9d1d9; line-height:1.7; font-size:15px; }
+@media(max-width:1000px) {
+  .grid { grid-template-columns:1fr; }
+  .network-state { font-size:34px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="eyebrow">On-Chain Intelligence Dashboard</div>
+    <div class="network-state" id="networkState">Connecting to Ethereum...</div>
+  </div>
+
+  <div class="grid">
+
+    <div class="panel">
+      <div class="section-title">Live Block Stream</div>
+      <div class="stream" id="stream">
+        <div class="stream-item">
+          <div class="stream-title">⏳ Waiting for blocks...</div>
+          <div class="stream-description">Pipeline starting up</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="section-title">Network Pulse</div>
+      <div class="pulse">
+        <div class="pulse-item">
+          <div class="pulse-label">Latest Block</div>
+          <div class="pulse-value" id="latest-block">—</div>
+        </div>
+        <div class="pulse-item">
+          <div class="pulse-label">Total Transactions</div>
+          <div class="pulse-value" id="total-txs">—</div>
+        </div>
+        <div class="pulse-item">
+          <div class="pulse-label">Total ETH Moved</div>
+          <div class="pulse-value" id="total-eth">—</div>
+        </div>
+        <div class="pulse-item">
+          <div class="pulse-label">Top Activity</div>
+          <div class="pulse-value" id="top-type">—</div>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="section-title">Network Flow</div>
+        <div class="flow-text" id="flowText">
+          Monitoring Ethereum mainnet in real time. Data updates every 15 seconds.
+        </div>
+      </div>
+
+      <div class="live">
+        <div class="dot"></div>
+        Monitoring Ethereum in real time
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function getNetworkState(data) {
+  if (!data.latest_block) return "Connecting to Ethereum...";
+  const top = data.tx_types[0]?.type || "";
+  if (top === "Swap") return "Elevated swap activity detected";
+  if (top === "Approve") return "High approval activity detected";
+  if (data.total_eth_moved > 5000) return "Large ETH movement detected";
+  return "Ethereum network operating normally";
+}
+
+function getFlowText(data) {
+  if (!data.latest_block) return "Pipeline starting up...";
+  const top = data.tx_types[0]?.type || "Contract Call";
+  const eth = data.total_eth_moved;
+  return `${top} dominates recent activity. ${eth.toFixed(2)} ETH moved across ${data.total_txs} transactions in the last ${data.blocks.length} blocks.`;
+}
+
+async function fetchDashboard() {
+  try {
+    const res = await fetch("/dashboard");
+    const data = await res.json();
+
+    document.getElementById("networkState").innerText = getNetworkState(data);
+    document.getElementById("flowText").innerText = getFlowText(data);
+    document.getElementById("latest-block").innerText = data.latest_block ? `#${data.latest_block}` : "—";
+    document.getElementById("total-txs").innerText = data.total_txs;
+    document.getElementById("total-eth").innerText = data.total_eth_moved + " ETH";
+    document.getElementById("top-type").innerText = data.tx_types[0]?.type || "—";
+
+    if (data.blocks.length > 0) {
+      document.getElementById("stream").innerHTML = data.blocks.map(block => `
+        <div class="stream-item">
+          <div class="block-number">Block #${block.number}</div>
+          <div class="stream-title">${block.eth_moved} ETH moved</div>
+          <div class="stream-description">
+            ${block.tx_count} transactions processed in this block.
+          </div>
+          <div class="stream-meta">
+            <span>${block.tx_count} txs</span>
+            <span>${block.gas_price.toFixed(1)} Gwei</span>
+          </div>
+        </div>
+      `).join("");
+    }
+  } catch(e) { console.error(e); }
+}
+
+fetchDashboard();
+setInterval(fetchDashboard, 15000);
+</script>
+</body>
+</html>
