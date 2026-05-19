@@ -10,9 +10,12 @@
 
 A functional, real-time analytics dashboard monitoring live block streams, gas fees (Gwei base fees), volume tracking, and network activity distribution on Ethereum Mainnet.
 
-## Live Demo
+## Demo
 
-🔗 **Live Project:** [https://onchain-intelligence-dashboard.onrender.com](https://onchain-intelligence-dashboard.onrender.com)
+[![On-Chain Dashboard Demo](https://img.youtube.com/vi/NXal_JvluUg/0.jpg)](https://youtu.be/NXal_JvluUg)
+
+🔗 **Live Demo:** [https://onchain-intelligence-dashboard.onrender.com](https://onchain-intelligence-dashboard.onrender.com)
+
 
 ## Problem
 
