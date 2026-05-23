@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+import logging
 from flask import Flask, render_template, jsonify
 from web3 import Web3
 from dotenv import load_dotenv
@@ -8,9 +9,20 @@ from collections import defaultdict
 
 load_dotenv()
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 RPC_URL = os.getenv("RPC_URL")
 w3 = Web3(Web3.HTTPProvider(RPC_URL))
+
+if not w3.is_connected():
+    logger.error("Connection failed. Check your RPC.")
+    exit()
+logger.info("Connected to Ethereum successfully")
 
 data = {
     "blocks": [],
@@ -37,6 +49,7 @@ def classify_tx(tx):
 
 def monitor():
     last_block = w3.eth.block_number
+    logger.info(f"Dashboard monitor started at block {last_block}")
     while True:
         try:
             current = w3.eth.block_number
@@ -70,9 +83,10 @@ def monitor():
                     data["tx_type_counts"][tx_type] += 1
 
                 last_block = current
+                logger.info(f"Block {current}: {len(block.transactions)} txs | {round(block_eth, 4)} ETH")
             time.sleep(12)
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"Monitor error: {e}")
             time.sleep(12)
 
 @app.route("/")
@@ -81,16 +95,21 @@ def index():
 
 @app.route("/dashboard")
 def dashboard():
-    return jsonify({
-        "latest_block": data["latest_block"],
-        "total_txs": data["total_txs"],
-        "total_eth_moved": round(data["total_eth_moved"], 4),
-        "blocks": data["blocks"][:10],
-        "gas_history": data["gas_history"],
-        "tx_types": [{"type": k, "count": v} for k, v in data["tx_type_counts"].items()]
-    })
+    try:
+        return jsonify({
+            "latest_block": data["latest_block"],
+            "total_txs": data["total_txs"],
+            "total_eth_moved": round(data["total_eth_moved"], 4),
+            "blocks": data["blocks"][:10],
+            "gas_history": data["gas_history"],
+            "tx_types": [{"type": k, "count": v} for k, v in data["tx_type_counts"].items()]
+        })
+    except Exception as e:
+        logger.error(f"Error getting dashboard data: {e}")
+        return jsonify({"error": str(e)}), 400
 
 if __name__ == "__main__":
     t = threading.Thread(target=monitor, daemon=True)
     t.start()
-    app.run(host="0.0.0.0", port=5003, debug=False)
+    port = int(os.environ.get("PORT", 5003))
+    app.run(host="0.0.0.0", port=port, debug=False)
